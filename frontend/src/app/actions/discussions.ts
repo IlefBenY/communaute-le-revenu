@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getToken } from '@/lib/auth/session';
 import { StrapiError, strapiFetch } from '@/lib/strapi/client';
 import { TAGS } from '@/lib/strapi/queries';
-import type { DiscussionDetail, Reply, Single } from '@/lib/strapi/types';
+import type { DiscussionDetail, Reply, Single, UsefulToggle } from '@/lib/strapi/types';
 import { validateDiscussionInput, validateReplyInput } from '@/lib/validation';
 import type { FormState } from './types';
 
@@ -85,4 +85,41 @@ export async function createReply(_prev: FormState, formData: FormData): Promise
   if (reply.discussion) updateTag(TAGS.discussion(reply.discussion.slug));
   updateTag(TAGS.discussions);
   return { status: 'success', message: 'Votre réponse a été publiée.' };
+}
+
+export type UsefulState = { usefulCount: number; voted: boolean; error?: string };
+
+/** Ajoute ou retire le vote « Utile » ; Strapi refuse le vote sur sa propre réponse. */
+export async function toggleUseful(prev: UsefulState, formData: FormData): Promise<UsefulState> {
+  const reply = String(formData.get('reply') ?? '');
+  const token = await getToken();
+  if (!token) return { ...prev, error: 'Connectez-vous pour voter.' };
+
+  try {
+    const res = await strapiFetch<Single<UsefulToggle>>(`/api/replies/${encodeURIComponent(reply)}/useful`, {
+      method: 'POST',
+      token,
+    });
+    if (res.data.discussion) updateTag(TAGS.discussion(res.data.discussion.slug));
+    updateTag(TAGS.discussions);
+    return { usefulCount: res.data.usefulCount, voted: res.data.voted };
+  } catch (error) {
+    return { ...prev, error: error instanceof StrapiError && error.status === 403 ? error.message : 'Vote impossible pour le moment.' };
+  }
+}
+
+/** Choisit ou retire la meilleure réponse (réservé à l'auteur, vérifié par Strapi). */
+export async function chooseBestReply(formData: FormData) {
+  const discussion = String(formData.get('discussion') ?? '');
+  const reply = String(formData.get('reply') ?? '') || null;
+  const token = await getToken();
+  if (!token) redirect('/connexion');
+
+  const res = await strapiFetch<Single<{ slug: string }>>(`/api/discussions/${encodeURIComponent(discussion)}/best-reply`, {
+    method: 'PUT',
+    token,
+    body: { data: { reply } },
+  });
+  updateTag(TAGS.discussion(res.data.slug));
+  updateTag(TAGS.discussions);
 }

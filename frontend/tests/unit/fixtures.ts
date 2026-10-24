@@ -8,6 +8,7 @@ export const makeDiscussion = (overrides: Partial<DiscussionSummary> = {}): Disc
   type: 'question',
   excerpt: 'Je viens d’ouvrir un PEA en ligne…',
   repliesCount: 4,
+  solved: false,
   publishedAt: '2026-10-22T09:03:01.028Z',
   author: { id: 11, documentId: 'u-11', username: 'Thomas_PEA' },
   category: { documentId: 'c-1', name: 'Bourse & actions', slug: 'bourse', color: '#007aff' },

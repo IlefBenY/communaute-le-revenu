@@ -13,6 +13,7 @@ type Populate = Modules.Documents.Params.Populate.Any<typeof UID>;
 const LIST_POPULATE = {
   author: { fields: ['username'] },
   category: { fields: ['name', 'slug', 'color'] },
+  bestReply: { fields: ['id'] },
 } satisfies Populate;
 
 type Row = {
@@ -26,7 +27,15 @@ type Row = {
   createdAt?: string | Date;
   author?: { id: number; documentId: string; username: string } | null;
   category?: { documentId: string; name: string; slug: string; color?: string | null } | null;
-  replies?: { id: number; documentId: string; content: string; createdAt: string | Date; author?: Row['author'] }[];
+  replies?: {
+    id: number;
+    documentId: string;
+    content: string;
+    usefulCount?: number | null;
+    createdAt: string | Date;
+    author?: Row['author'];
+  }[];
+  bestReply?: { documentId: string } | null;
 };
 
 /**
@@ -41,6 +50,7 @@ const toListItem = (d: Row) => ({
   type: d.type,
   excerpt: excerpt(d.content ?? ''),
   repliesCount: d.repliesCount ?? 0,
+  solved: Boolean(d.bestReply),
   publishedAt: d.createdAt,
   author: toAuthor(d.author),
   category: toCategory(d.category),
@@ -49,10 +59,12 @@ const toListItem = (d: Row) => ({
 const toDetail = (d: Row) => ({
   ...toListItem(d),
   content: d.content ?? '',
+  bestReply: d.bestReply?.documentId ?? null,
   replies: (d.replies ?? []).map((r) => ({
     id: r.id,
     documentId: r.documentId,
     content: r.content,
+    usefulCount: r.usefulCount ?? 0,
     createdAt: r.createdAt,
     author: toAuthor(r.author),
   })),
@@ -61,7 +73,7 @@ const toDetail = (d: Row) => ({
 const DETAIL_POPULATE = {
   ...LIST_POPULATE,
   replies: {
-    fields: ['content', 'createdAt'],
+    fields: ['content', 'usefulCount', 'createdAt'],
     sort: ['createdAt:asc', 'id:asc'],
     populate: { author: { fields: ['username'] } },
   },
@@ -153,6 +165,29 @@ const discussionService = ({ strapi }: { strapi: Core.Strapi }) => ({
         slug = `${slugify(input.title, 70)}-${Math.random().toString(36).slice(2, 7)}`;
       }
     }
+  },
+
+  /**
+   * Choisit (ou retire, avec `null`) la meilleure réponse. La réponse doit appartenir
+   * à la discussion ; le droit de le faire est vérifié par la policy is-discussion-author.
+   */
+  async setBestReply(discussionDocumentId: string, replyDocumentId: string | null) {
+    const discussion = await strapi.documents(UID).findOne({ documentId: discussionDocumentId, fields: ['slug'] });
+    if (!discussion) throw new errors.NotFoundError('Discussion introuvable.');
+
+    if (replyDocumentId) {
+      const belongs = await strapi.documents('api::reply.reply').count({
+        filters: { documentId: replyDocumentId, discussion: { documentId: discussionDocumentId } },
+      });
+      if (!belongs) {
+        throw new errors.ValidationError("Cette réponse n'appartient pas à la discussion.", {
+          errors: [{ path: ['reply'], message: "Cette réponse n'appartient pas à la discussion.", name: 'ValidationError' }],
+        });
+      }
+    }
+
+    await strapi.documents(UID).update({ documentId: discussionDocumentId, data: { bestReply: replyDocumentId } });
+    return { documentId: discussionDocumentId, slug: discussion.slug, bestReply: replyDocumentId };
   },
 
   /**

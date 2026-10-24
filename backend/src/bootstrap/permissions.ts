@@ -6,8 +6,15 @@ const READ = [
   'api::discussion.discussion.find',
   'api::discussion.discussion.findOne',
   'api::discussion.discussion.findBySlug',
+  'api::member.member.findOne',
 ];
-const WRITE = ['api::discussion.discussion.create', 'api::reply.reply.create'];
+const WRITE = [
+  'api::discussion.discussion.create',
+  'api::discussion.discussion.setBestReply',
+  'api::reply.reply.create',
+  'api::reply.reply.toggleUseful',
+  'api::reply.reply.myUseful',
+];
 
 /** Permissions attendues par rôle Users & Permissions. Le reste est fermé par défaut. */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {

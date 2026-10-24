@@ -1,7 +1,7 @@
 import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { StrapiError, strapiFetch } from './client';
-import type { Category, DiscussionDetail, DiscussionListParams, DiscussionSummary, Paginated, Single } from './types';
+import type { Category, DiscussionDetail, DiscussionListParams, DiscussionSummary, Member, Paginated, Single } from './types';
 
 /**
  * Lectures publiques, mises en cache par Next.js et invalidées par tag
@@ -42,6 +42,21 @@ export async function getDiscussionBySlug(slug: string) {
 
   try {
     const res = await strapiFetch<Single<DiscussionDetail>>(`/api/discussions/slug/${encodeURIComponent(slug)}`);
+    return res.data;
+  } catch (error) {
+    if (error instanceof StrapiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export async function getMember(username: string) {
+  'use cache';
+  cacheLife('minutes');
+  // Le profil agrège discussions, réponses et votes : invalidé avec le tag des discussions.
+  cacheTag(TAGS.discussions);
+
+  try {
+    const res = await strapiFetch<Single<Member>>(`/api/members/${encodeURIComponent(username)}`);
     return res.data;
   } catch (error) {
     if (error instanceof StrapiError && error.status === 404) return null;

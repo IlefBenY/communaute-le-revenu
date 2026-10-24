@@ -16,7 +16,7 @@ export class StrapiError extends Error {
 }
 
 type FetchOptions = {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT';
   body?: unknown;
   /** JWT de l'utilisateur ; jamais exposé au navigateur. */
   token?: string;

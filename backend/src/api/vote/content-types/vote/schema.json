@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "votes",
+  "info": {
+    "singularName": "vote",
+    "pluralName": "votes",
+    "displayName": "Vote",
+    "description": "Vote « Utile » d'un membre sur une réponse (un seul par membre et par réponse)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "private": true
+    },
+    "voter": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reply": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::reply.reply"
+    }
+  }
+}

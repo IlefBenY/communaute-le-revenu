@@ -8,8 +8,9 @@ Espace communautaire où les lecteurs du Revenu posent des questions et partagen
 | Détail : URL propre (`/discussions/<slug>`), réponses, publication d'une réponse | Fait |
 | Création : validation (titre ≥ 10 caractères, contenu, catégorie, type) côté Strapi **et** côté front, redirection | Fait |
 | Utilisateurs & permissions : auteur forcé côté serveur, refus des non-authentifiés, anti-usurpation | Fait |
-| Bonus : recherche, pagination, tri « plus de réponses », Playwright, Docker Compose | Fait |
-| Bonus non réalisés : votes « Utile », meilleure réponse, profil utilisateur | — |
+| Bonus : recherche, pagination, tri « plus de réponses » | Fait |
+| Bonus : votes « Utile », meilleure réponse, profil utilisateur | Fait |
+| Bonus : tests end-to-end Playwright, Docker Compose | Fait |
 
 ---
 
@@ -82,7 +83,7 @@ Cas couverts, tels que demandés par l'énoncé :
 - **Protection contre l'usurpation d'auteur** : `author` d'un autre utilisateur, par `id`, `documentId` ou objet → `403` avec message explicite, pour les discussions **et** les réponses ; la policy est aussi testée unitairement.
 - **Affichage des discussions** : contrat de l'API (champs, pagination, pas d'e-mail exposé), filtre et tri (backend) ; carte, liste et état vide (unitaire) ; accueil, filtre, tri et détail (E2E).
 
-Lors de la livraison : backend 20/20, frontend 10/10, E2E 11/11.
+Lors de la livraison : backend 48/48, frontend 28/28, E2E 16/16.
 
 ---
 
@@ -94,7 +95,9 @@ Lors de la livraison : backend 20/20, frontend 10/10, E2E 11/11.
 Category (name unique, slug, description, color)
    1 ── n  Discussion (title 10–160, slug unique, content, type: question|discussion, repliesCount)
                 n ── 1  User (plugin Users & Permissions)
-                1 ── n  Reply (content ≤ 5000)  n ── 1  User
+                n ── 1  bestReply → Reply (meilleure réponse, optionnelle)
+                1 ── n  Reply (content ≤ 5000, usefulCount)  n ── 1  User
+                               1 ── n  Vote (key unique « voter:reply »)  n ── 1  User
 ```
 
 - `draftAndPublish` est désactivé : une publication est immédiatement visible. La **date de publication exposée est `createdAt`** : sans Draft & Publish, Strapi réécrit `publishedAt` à chaque mise à jour (y compris depuis l'admin), alors que `createdAt` est immuable. Un test le vérifie.
@@ -111,6 +114,10 @@ Category (name unique, slug, description, color)
 | POST | `/api/discussions` | Authentifié | Création |
 | POST | `/api/replies` | Authentifié | Réponse à une discussion |
 | GET | `/api/categories`, `/api/categories/:documentId` | Public | Catégories (champs publics uniquement, `populate` ignoré) |
+| POST | `/api/replies/:documentId/useful` | Authentifié | Ajoute ou retire le vote « Utile » (pas sur sa propre réponse) |
+| GET | `/api/replies/useful/mine?discussion=` | Authentifié | Réponses de la discussion que j'ai marquées « Utile » |
+| PUT | `/api/discussions/:documentId/best-reply` | Auteur de la discussion | Choisit (`{ reply }`) ou retire (`{ reply: null }`) la meilleure réponse |
+| GET | `/api/members/:username` | Public | Profil public : statistiques, discussions et réponses récentes |
 
 Les routes non nécessaires (update, delete, liste brute des réponses…) ne sont pas exposées (`only: [...]` dans les routers).
 
@@ -121,7 +128,11 @@ Les routes non nécessaires (update, delete, liste brute des réponses…) ne so
 - **Services** (`src/api/*/services`) : ils utilisent le **Document Service API**. Les relations sont chargées en une requête, avec uniquement les colonnes utiles (`populate` + `fields`). Le slug est rendu unique. L'auteur est **toujours** `ctx.state.user`. Les réponses passent par des DTO, ce qui évite d'exposer l'objet User (e-mail, provider…).
 - **Policies globales** (`src/policies`) :
   - `is-authenticated` : défense en profondeur. En fonctionnement normal elle ne se déclenche pas, car Strapi refuse d'abord la requête (`403`, permission absente du rôle Public). Elle ne sert que si quelqu'un ouvrait par erreur la permission `create` au rôle Public ; elle renvoie alors `401`. Elle est testée unitairement ;
-  - `is-not-impersonating` : renvoie un `403` explicite si `author` désigne un autre utilisateur. Elle lève une `PolicyError`, la seule erreur `403` dont Strapi conserve le message.
+  - `is-not-impersonating` : renvoie un `403` explicite si `author` désigne un autre utilisateur. Elle lève une `PolicyError`, la seule erreur `403` dont Strapi conserve le message ;
+  - `api::reply.is-not-own-reply` : interdit de voter « Utile » pour sa propre réponse ;
+  - `api::discussion.is-discussion-author` : seul l'auteur de la discussion choisit la meilleure réponse.
+- **Votes « Utile »** : un content type `Vote` dont la clé `voter:reply` porte un index unique en base. Même des clics simultanés ne créent qu'un vote (testé). Le compteur `usefulCount` est recalculé après chaque vote.
+- **Profil membre** : une API sans content type (`src/api/member`) qui agrège utilisateurs, discussions, réponses et votes, sans jamais exposer l'e-mail.
 - **Permissions** (`src/bootstrap/permissions.ts`) : elles sont versionnées dans le code et appliquées au démarrage de façon idempotente. Public = lecture ; Authenticated = lecture + création de discussions et de réponses.
 - **JWT** (`config/plugins.ts`) : mode `legacy-support` avec une durée de 7 jours, alignée sur le cookie de session côté Next.js. Le mode `refresh` généré par défaut ne convient pas ici : Strapi y pose lui-même un cookie `Secure` destiné au navigateur, ce qui provoque une erreur 500 en HTTP en production.
 - **Fuseau horaire** : le processus Strapi tourne en UTC (`src/index.ts`). Les colonnes sont en `timestamp without time zone`, donc sans cela deux environnements à fuseaux différents (poste local et conteneur) écriraient des dates décalées.
@@ -146,6 +157,7 @@ src/
 │   ├── discussions/[slug]/           # Détail, not-found dédié
 │   ├── nouvelle-discussion/          # Création (accès connecté)
 │   ├── connexion/                    # Connexion (comptes de démo)
+│   ├── membres/[username]/           # Profil public d'un membre
 │   ├── actions/                      # Server Actions : login/logout, création, réponse
 │   ├── error.tsx, not-found.tsx
 ├── components/{layout,discussions,auth,ui}/
@@ -194,8 +206,7 @@ Aucune bibliothèque de validation ou de requêtes n'a été ajoutée côté fro
 
 ## 5. Pistes d'évolution
 
-- Votes « Utile » et meilleure réponse : content type `Vote` avec contrainte d'unicité (user, reply), et `bestReply` sur Discussion, modifiable uniquement par l'auteur (policy `is-owner`).
-- Profil utilisateur : page `/membres/[username]`, avec une extension du modèle User (bio, avatar).
+- Profil enrichi : bio et avatar (extension du modèle User), édition par le membre lui-même.
 - Invalidation du cache déclenchée par Strapi : webhook vers une route Next.js qui appelle `revalidateTag` quand un contenu est modifié depuis l'admin.
 - Recherche plein texte PostgreSQL (`tsvector` + index GIN) à la place de `$containsi` quand le volume augmentera.
 - Rate limiting des publications et modération (signalements, masquage).

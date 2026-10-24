@@ -16,6 +16,11 @@
       "required": true,
       "maxLength": 5000
     },
+    "usefulCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
     "author": {
       "type": "relation",
       "relation": "manyToOne",

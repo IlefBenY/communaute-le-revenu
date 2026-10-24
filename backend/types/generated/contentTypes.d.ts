@@ -503,6 +503,7 @@ export interface ApiDiscussionDiscussion extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    bestReply: Schema.Attribute.Relation<'manyToOne', 'api::reply.reply'>;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
     content: Schema.Attribute.Text &
       Schema.Attribute.Required &
@@ -579,6 +580,48 @@ export interface ApiReplyReply extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    usefulCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+  };
+}
+
+export interface ApiVoteVote extends Struct.CollectionTypeSchema {
+  collectionName: 'votes';
+  info: {
+    description: "Vote \u00AB Utile \u00BB d'un membre sur une r\u00E9ponse (un seul par membre et par r\u00E9ponse)";
+    displayName: 'Vote';
+    pluralName: 'votes';
+    singularName: 'vote';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::vote.vote'> &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    reply: Schema.Attribute.Relation<'manyToOne', 'api::reply.reply'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    voter: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -1096,6 +1139,7 @@ declare module '@strapi/strapi' {
       'api::category.category': ApiCategoryCategory;
       'api::discussion.discussion': ApiDiscussionDiscussion;
       'api::reply.reply': ApiReplyReply;
+      'api::vote.vote': ApiVoteVote;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

@@ -41,3 +41,19 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     throw error;
   }
 });
+
+/** Réponses d'une discussion que l'utilisateur courant a marquées « Utile » (non mis en cache). */
+export async function getMyUsefulVotes(discussionDocumentId: string): Promise<string[]> {
+  const token = await getToken();
+  if (!token) return [];
+  try {
+    const res = await strapiFetch<{ data: string[] }>('/api/replies/useful/mine', {
+      token,
+      query: { discussion: discussionDocumentId },
+    });
+    return res.data;
+  } catch (error) {
+    if (error instanceof StrapiError && (error.status === 401 || error.status === 403)) return [];
+    throw error;
+  }
+}

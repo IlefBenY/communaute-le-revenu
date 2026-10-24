@@ -24,6 +24,8 @@ export type DiscussionSummary = {
   type: DiscussionType;
   excerpt: string;
   repliesCount: number;
+  /** Une meilleure réponse a été choisie. */
+  solved: boolean;
   publishedAt: string;
   author: Author | null;
   category: CategoryRef | null;
@@ -33,13 +35,30 @@ export type Reply = {
   id: number;
   documentId: string;
   content: string;
+  usefulCount: number;
   createdAt: string;
   author: Author | null;
   /** Renvoyé uniquement à la création d'une réponse. */
   discussion?: { documentId: string; slug: string };
 };
 
-export type DiscussionDetail = DiscussionSummary & { content: string; replies: Reply[] };
+export type DiscussionDetail = DiscussionSummary & { content: string; bestReply: string | null; replies: Reply[] };
+
+export type UsefulToggle = { reply: string; usefulCount: number; voted: boolean; discussion: { documentId: string; slug: string } | null };
+
+export type Member = {
+  username: string;
+  memberSince: string;
+  stats: { discussions: number; replies: number; bestAnswers: number; usefulReceived: number };
+  discussions: Pick<DiscussionSummary, 'documentId' | 'title' | 'slug' | 'type' | 'repliesCount' | 'solved' | 'publishedAt' | 'category'>[];
+  replies: {
+    documentId: string;
+    excerpt: string;
+    usefulCount: number;
+    createdAt: string;
+    discussion: { title: string; slug: string } | null;
+  }[];
+};
 
 export type Pagination = { page: number; pageSize: number; pageCount: number; total: number };
 

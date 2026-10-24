@@ -18,4 +18,22 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     ctx.status = 201;
     return { data: reply };
   },
+
+  // POST /api/replies/:id/useful  → ajoute ou retire le vote « Utile »
+  async toggleUseful(ctx) {
+    const user = ctx.state.user;
+    if (!user) throw new errors.UnauthorizedError('Vous devez être connecté pour voter.');
+    const service = strapi.service(UID) as unknown as ReplyService;
+    return { data: await service.toggleUseful(ctx.params.id, user.documentId) };
+  },
+
+  // GET /api/replies/useful/mine?discussion=<documentId>
+  async myUseful(ctx) {
+    const user = ctx.state.user;
+    if (!user) throw new errors.UnauthorizedError();
+    const discussion = typeof ctx.query.discussion === 'string' ? ctx.query.discussion : '';
+    if (!discussion) throw new errors.ValidationError('Le paramètre « discussion » est obligatoire.');
+    const service = strapi.service(UID) as unknown as ReplyService;
+    return { data: await service.myUseful(discussion, user.documentId) };
+  },
 }));

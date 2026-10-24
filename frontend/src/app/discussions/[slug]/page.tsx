@@ -4,11 +4,13 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ReplyComposer } from '@/components/discussions/ReplyComposer';
 import { ReplyList } from '@/components/discussions/ReplyList';
-import { Avatar } from '@/components/ui/Avatar';
+import { AuthorLink } from '@/components/ui/AuthorLink';
 import { CategoryBadge, TypeBadge } from '@/components/ui/Badges';
 import { RichText } from '@/components/ui/RichText';
 import { formatDateTime, pluralize } from '@/lib/format';
+import { getCurrentUser, getMyUsefulVotes } from '@/lib/auth/session';
 import { getDiscussionBySlug } from '@/lib/strapi/queries';
+import type { DiscussionDetail } from '@/lib/strapi/types';
 
 export async function generateMetadata({ params }: PageProps<'/discussions/[slug]'>): Promise<Metadata> {
   const discussion = await getDiscussionBySlug((await params).slug);
@@ -28,7 +30,7 @@ async function Discussion({ params }: { params: PageProps<'/discussions/[slug]'>
   const discussion = await getDiscussionBySlug(slug);
   if (!discussion) notFound();
 
-  const { title, content, type, author, category, publishedAt, replies, documentId } = discussion;
+  const { title, content, type, author, category, publishedAt, replies, documentId, solved } = discussion;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -50,13 +52,13 @@ async function Discussion({ params }: { params: PageProps<'/discussions/[slug]'>
         <div className="flex flex-wrap items-center gap-2">
           {category && <CategoryBadge category={category} />}
           <TypeBadge type={type} />
+          {solved && <span className="rounded-md bg-ok-soft px-1.5 py-0.5 text-[11px] font-semibold text-ok">Résolue</span>}
         </div>
         <h1 className="mt-2 font-serif text-2xl font-bold leading-tight sm:text-3xl">{title}</h1>
-        <p className="mt-3 flex items-center gap-2 text-sm text-ink-3">
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-3">
           {author && (
             <>
-              <Avatar name={author.username} size="md" />
-              <span className="font-semibold text-ink">{author.username}</span>
+              <AuthorLink username={author.username} size="md" />
               <span aria-hidden>·</span>
             </>
           )}
@@ -71,12 +73,33 @@ async function Discussion({ params }: { params: PageProps<'/discussions/[slug]'>
         <h2 id="replies-title" className="font-serif text-xl font-bold">
           {pluralize(replies.length, 'réponse')}
         </h2>
-        <ReplyList replies={replies} />
+        {/* Les votes et droits dépendent de l'utilisateur : partie dynamique isolée. */}
+        <Suspense fallback={<div className="card h-40 animate-pulse" />}>
+          <Replies discussion={discussion} />
+        </Suspense>
         <Suspense fallback={<div className="card h-40 animate-pulse" />}>
           <ReplyComposer discussionId={documentId} slug={slug} />
         </Suspense>
       </section>
     </div>
+  );
+}
+
+async function Replies({ discussion }: { discussion: DiscussionDetail }) {
+  const user = await getCurrentUser();
+  const votes = user ? await getMyUsefulVotes(discussion.documentId) : [];
+  const viewer = user
+    ? { documentId: user.documentId, isDiscussionAuthor: user.documentId === discussion.author?.documentId, votes }
+    : null;
+
+  return (
+    <ReplyList
+      replies={discussion.replies}
+      discussionId={discussion.documentId}
+      bestReply={discussion.bestReply}
+      viewer={viewer}
+      loginHref={`/connexion?next=${encodeURIComponent(`/discussions/${discussion.slug}`)}`}
+    />
   );
 }
 

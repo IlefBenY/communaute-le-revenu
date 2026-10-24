@@ -30,7 +30,8 @@ Backend (`backend/src`):
 - `api/*/validation.ts` — yup schemas (`@strapi/utils`), the authoritative validation.
 - `api/*/services/*.ts` — business logic with the Document Service API; returns DTOs (never the full User).
 - `api/*/controllers/*.ts` — thin HTTP layer; `api/*/routes/*.ts` — only needed actions exposed + policies.
-- `policies/is-authenticated.ts`, `policies/is-not-impersonating.ts` — global policies on `create`.
+- `policies/is-authenticated.ts`, `policies/is-not-impersonating.ts` — global policies on `create`; `api/reply/policies/is-not-own-reply.ts` and `api/discussion/policies/is-discussion-author.ts` for the « Utile » votes and best answer.
+- `api/vote` (content type, unique `key` = `voter:reply`) and `api/member` (API without content type: public profile).
 - `bootstrap/permissions.ts` (role permissions as code), `bootstrap/indexes.ts`, `bootstrap/seed.ts` (+ `data/seed/*.json`).
 - `tests/` — `unit/` and `api/` (the brief's required cases: validation, unauthenticated refusal, impersonation, listing).
 
@@ -38,7 +39,7 @@ Frontend (`frontend/src`):
 - `lib/strapi/client.ts` (single typed fetch, `StrapiError`), `queries.ts` (`'use cache'` + `cacheTag`), `types.ts`.
 - `lib/auth/session.ts` — JWT in an httpOnly cookie, `getCurrentUser()`.
 - `app/actions/*` — Server Actions (login/logout, createDiscussion, createReply) calling `updateTag` after writes.
-- `app/` routes: `/`, `/discussions/[slug]`, `/nouvelle-discussion`, `/connexion`.
+- `app/` routes: `/`, `/discussions/[slug]`, `/nouvelle-discussion`, `/connexion`, `/membres/[username]`.
 
 ## Things that look odd but are intentional
 

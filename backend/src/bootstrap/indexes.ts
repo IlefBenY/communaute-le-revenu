@@ -9,4 +9,6 @@ export async function ensureIndexes(strapi: Core.Strapi) {
   await knex.raw('CREATE INDEX IF NOT EXISTS discussions_created_at_idx ON discussions (created_at)');
   await knex.raw('CREATE INDEX IF NOT EXISTS discussions_replies_count_idx ON discussions (replies_count)');
   await knex.raw('CREATE UNIQUE INDEX IF NOT EXISTS discussions_slug_uq ON discussions (slug)');
+  // Un seul vote « Utile » par membre et par réponse (clé « voter:reply »).
+  await knex.raw('CREATE UNIQUE INDEX IF NOT EXISTS votes_key_uq ON votes (key)');
 }

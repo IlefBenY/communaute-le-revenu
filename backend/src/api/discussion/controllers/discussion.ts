@@ -38,5 +38,15 @@ export default factories.createCoreController(UID, ({ strapi }) => {
       ctx.status = 201;
       return { data: discussion };
     },
+
+    // PUT /api/discussions/:id/best-reply  { data: { reply: "<documentId>" | null } }
+    async setBestReply(ctx) {
+      const body = ctx.request.body as { data?: { reply?: unknown } } | undefined;
+      const reply = body?.data?.reply;
+      if (reply !== null && typeof reply !== 'string') {
+        throw new errors.ValidationError("Le champ « reply » doit être l'identifiant d'une réponse ou null.");
+      }
+      return { data: await service().setBestReply(ctx.params.id, reply || null) };
+    },
   };
 });

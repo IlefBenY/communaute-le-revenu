@@ -12,7 +12,9 @@ type SeedDiscussion = {
   minutesAgo: number;
   title: string;
   content: string;
-  replies: { author: string; content: string }[];
+  /** Index de la meilleure réponse dans `replies`, ou null. */
+  bestReply: number | null;
+  replies: { author: string; content: string; useful: number }[];
 };
 
 export const DEMO_PASSWORD = 'Demo1234!';
@@ -74,12 +76,31 @@ export async function seedDemoData(strapi: Core.Strapi) {
       .query('api::discussion.discussion')
       .update({ where: { id: discussion.id }, data: { publishedAt, createdAt: publishedAt } });
 
+    const replyIds: string[] = [];
     for (const [i, r] of d.replies.entries()) {
       const reply = await strapi.documents('api::reply.reply').create({
         data: { content: r.content, discussion: discussion.documentId, author: userIds.get(r.author) },
       });
       const createdAt = new Date(publishedAt.getTime() + (i + 1) * 37 * 60_000);
       await strapi.db.query('api::reply.reply').update({ where: { id: reply.id }, data: { createdAt, publishedAt: createdAt } });
+      replyIds.push(reply.documentId);
+
+      // Votes « Utile » : environ un tiers des « J'aime » de la maquette, jamais par l'auteur de la réponse.
+      const voters = users.map((u) => u.username).filter((u) => u !== r.author);
+      const count = Math.min(Math.ceil(r.useful / 3), voters.length);
+      for (let v = 0; v < count; v++) {
+        const voter = userIds.get(voters[(i * 5 + v) % voters.length])!;
+        await strapi.documents('api::vote.vote').create({
+          data: { key: `${voter}:${reply.documentId}`, voter, reply: reply.documentId },
+        });
+      }
+      await strapi.db.query('api::reply.reply').update({ where: { id: reply.id }, data: { usefulCount: count } });
+    }
+
+    if (d.bestReply !== null && replyIds[d.bestReply]) {
+      await strapi
+        .documents('api::discussion.discussion')
+        .update({ documentId: discussion.documentId, data: { bestReply: replyIds[d.bestReply] } });
     }
   }
 

@@ -29,7 +29,10 @@
     },
     "type": {
       "type": "enumeration",
-      "enum": ["question", "discussion"],
+      "enum": [
+        "question",
+        "discussion"
+      ],
       "default": "discussion",
       "required": true
     },
@@ -54,6 +57,11 @@
       "relation": "oneToMany",
       "target": "api::reply.reply",
       "mappedBy": "discussion"
+    },
+    "bestReply": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::reply.reply"
     }
   }
 }
