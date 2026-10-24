@@ -10,25 +10,74 @@ Espace communautaire où les lecteurs du Revenu posent des questions et partagen
 | Utilisateurs & permissions : auteur forcé côté serveur, refus des non-authentifiés, anti-usurpation | Fait |
 | Bonus : recherche, pagination, tri « plus de réponses » | Fait |
 | Bonus : votes « Utile », meilleure réponse, profil utilisateur | Fait |
-| Bonus : tests end-to-end Playwright, Docker Compose | Fait |
+| Bonus : tests end-to-end Playwright | Fait |
+| Bonus : solution dockerisée (Docker Compose : PostgreSQL + Strapi + Next.js) | Fait |
 
 ---
 
 ## 1. Lancer le projet
 
+La solution est **entièrement dockerisée** : une seule commande démarre la base PostgreSQL, le backend Strapi et le frontend Next.js, chacun dans son conteneur. Docker suffit, sans installer Node.js ni PostgreSQL sur la machine.
+
+```
+docker compose --profile full up
+
+  navigateur ──▶ web (Next.js)     ──▶ strapi (Strapi v5) ──▶ postgres (PostgreSQL 16)
+                 :3000                  :1337                   :5432, volume pgdata
+                 STRAPI_URL=http://strapi:1337   (réseau Docker interne)
+```
+
+Deux modes sont proposés, selon l'usage :
+
+| | **A. Tout dans Docker** (recommandé pour évaluer) | **B. Développement local** |
+|---|---|---|
+| Pour | Lancer et tester l'application telle qu'elle serait livrée | Modifier le code et lancer les tests automatisés |
+| Dans Docker | PostgreSQL + Strapi + Next.js | PostgreSQL uniquement |
+| Sur la machine | rien | Strapi et Next.js, avec rechargement instantané à chaque modification |
+| Prérequis | Docker | Docker + Node.js 20/22 |
+
+Les deux modes partagent la même configuration (`backend/.env`, `frontend/.env.local`) et la même base PostgreSQL.
+
 ### Prérequis
 
-- Node.js 20 ou 22 et npm
-- Docker (pour PostgreSQL)
+- Docker (Docker Desktop sur macOS/Windows)
 - `openssl` (génération des secrets, présent par défaut sur macOS/Linux)
+- Mode B uniquement : Node.js 20 ou 22 et npm
 
-### Installation (développement local)
+### A. Tout dans Docker (recommandé)
 
 ```bash
 # 1. Variables d'environnement (secrets Strapi générés automatiquement)
 ./scripts/setup-env.sh
 
-# 2. Base PostgreSQL
+# 2. Construction et démarrage des 3 conteneurs
+docker compose --profile full up --build
+```
+
+Le site est sur http://localhost:3000, et Strapi sur http://localhost:1337 (administration : `/admin`).
+
+- **Premier lancement :** environ 10 minutes, le temps de construire le panneau d'administration Strapi. Les lancements suivants prennent quelques secondes.
+- **Ordre de démarrage :** il est garanti par des *healthchecks*. Strapi attend que PostgreSQL accepte les connexions, puis Next.js attend que l'API Strapi réponde.
+- **Build de Next.js :** le conteneur Next.js lance son build au démarrage, une fois Strapi prêt, car le build prérend le shell statique des pages à partir des données Strapi.
+- **Communication entre conteneurs :** Next.js appelle Strapi par le nom du service (`http://strapi:1337`) sur le réseau Docker interne. Les données PostgreSQL sont conservées dans le volume `pgdata`.
+
+| Action | Commande |
+|---|---|
+| Démarrer en arrière-plan | `docker compose --profile full up -d` |
+| Voir l'état des conteneurs | `docker compose --profile full ps` |
+| Suivre les logs | `docker compose logs -f strapi` (ou `web`, `postgres`) |
+| Arrêter (données conservées) | `docker compose --profile full down` |
+| Repartir de données propres | `docker compose --profile full down -v && docker compose --profile full up -d` |
+
+### B. Développement local
+
+Seul PostgreSQL tourne dans Docker. Strapi et Next.js tournent sur la machine pour un rechargement instantané. Le profil `full` n'étant pas activé, `docker compose up -d` ne démarre que la base.
+
+```bash
+# 1. Variables d'environnement (si ce n'est pas déjà fait)
+./scripts/setup-env.sh
+
+# 2. Base PostgreSQL seule
 docker compose up -d
 
 # 3. Backend Strapi : http://localhost:1337 (admin : /admin)
@@ -42,28 +91,21 @@ npm install
 npm run dev
 ```
 
-Au premier démarrage sur une base vide, Strapi insère les **données de démonstration** issues de la maquette : 11 catégories, 18 membres, 20 discussions et 48 réponses (`backend/data/seed/*.json`, désactivable avec `SEED_DEMO_DATA=false`). Il applique aussi les permissions des rôles (voir §3).
+Si la stack Docker complète tourne déjà, arrêtez d'abord ses conteneurs applicatifs, qui occupent les ports 1337 et 3000 : `docker compose --profile full stop strapi web`.
 
-Le compte administrateur Strapi se crée à la première visite de `/admin`. Il n'est pas nécessaire pour utiliser l'application.
+### Données et comptes de démonstration
 
-### Comptes de démonstration
+Au premier démarrage sur une base vide (dans les deux modes), Strapi insère les **données de démonstration** issues de la maquette : 11 catégories, 18 membres, 20 discussions, 48 réponses, des votes « Utile » et des meilleures réponses (`backend/data/seed/*.json`, désactivable avec `SEED_DEMO_DATA=false`). Il applique aussi les permissions des rôles (voir §3).
 
 Tous les membres ont le mot de passe **`Demo1234!`**. Par exemple : `Thomas_PEA`, `Vincent_ETF`, `Claire_Nantes`, `LaRedaction`.
 
-### Stack complète avec Docker (bonus)
-
-```bash
-./scripts/setup-env.sh
-docker compose --profile full up --build
-# → http://localhost:3000 (front) et http://localhost:1337 (Strapi)
-```
-
-Le conteneur Next.js lance son build au démarrage, une fois Strapi prêt : le build prérend le shell statique des pages à partir des données Strapi.
+Le compte administrateur Strapi se crée à la première visite de `/admin`. Il n'est pas nécessaire pour utiliser l'application.
 
 ### Réinitialiser les données
 
 ```bash
-docker compose down -v && docker compose up -d   # supprime le volume PostgreSQL
+docker compose --profile full down -v   # supprime le volume PostgreSQL (toutes les données)
+docker compose --profile full up -d     # mode A ; en mode B : docker compose up -d
 ```
 
 ---
