@@ -1,5 +1,6 @@
-# Par défaut, seul PostgreSQL démarre (développement local : `docker compose up -d`).
+# Par défaut, seul PostgreSQL démarre : `docker compose up -d`.
 # Stack complète (PostgreSQL + Strapi + Next.js) : `docker compose --profile full up --build`.
+# Visualiser la base (optionnel) : `docker compose --profile tools up -d adminer` → http://localhost:8080
 services:
   postgres:
     image: postgres:16-alpine
@@ -48,6 +49,17 @@ services:
       - "3000:3000"
     depends_on:
       strapi:
+        condition: service_healthy
+
+  adminer:
+    profiles: ["tools"]
+    image: adminer:4.8.1
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    depends_on:
+      postgres:
         condition: service_healthy
 
 volumes:
