@@ -1,0 +1,13 @@
+[
+  { "slug": "bourse", "name": "Bourse & actions", "description": "Actions, ETF, PEA, compte-titres : stratégies et retours d'expérience.", "color": "#007aff" },
+  { "slug": "economie", "name": "Économie", "description": "Conjoncture, taux, inflation, emploi : l'actualité économique en France, en Europe et dans le monde.", "color": "#3d5a80" },
+  { "slug": "epargne", "name": "Épargne & placements", "description": "Livrets, fonds euros, obligations, comptes à terme.", "color": "#34c759" },
+  { "slug": "assurance-vie", "name": "Assurance-vie", "description": "Choisir son contrat, arbitrer, transmettre.", "color": "#30b0c7" },
+  { "slug": "immobilier", "name": "Immobilier & SCPI", "description": "Résidence principale, locatif, SCPI, crédit immobilier.", "color": "#ff9500" },
+  { "slug": "impots", "name": "Impôts & fiscalité", "description": "Déclaration, niches fiscales, IFI : payer le juste impôt.", "color": "#5856d6" },
+  { "slug": "retraite", "name": "Retraite", "description": "PER, rachat de trimestres, cumul emploi-retraite.", "color": "#ff2d55" },
+  { "slug": "transmission", "name": "Famille & transmission", "description": "Donation, succession, protection du conjoint.", "color": "#af52de" },
+  { "slug": "alternatifs", "name": "Or, cryptos & alternatifs", "description": "Or physique, cryptoactifs, forêts, private equity.", "color": "#00c7be" },
+  { "slug": "budget", "name": "Budget & conso", "description": "Banques, crédits, assurances, bons plans.", "color": "#8e8e93" },
+  { "slug": "cafe", "name": "Le Café du Revenu", "description": "Présentations, discussions libres, idées pour la rédaction.", "color": "#a2845e" }
+]
